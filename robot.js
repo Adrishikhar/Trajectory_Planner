@@ -1,4 +1,5 @@
 import * as THREE from "three"
+import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 
 // --- CONFIGURATION ---
 const L1 = 2.0 // Base height (Joint 1)
@@ -9,6 +10,21 @@ let startTime = 0
 let isAnimating = false
 let pathPoints = []
 let currentS = 0 // The LSPB progress value
+
+// --- UI SLIDER UPDATES ---
+const sliders = document.querySelectorAll('input[type="range"]')
+sliders.forEach((slider) => {
+	// Grab the span element right next to the slider
+	const display = slider.nextElementSibling
+
+	// Set the initial value on load
+	display.textContent = slider.value
+
+	// Update the value in real-time as you drag
+	slider.addEventListener("input", (e) => {
+		display.textContent = e.target.value
+	})
+})
 
 // --- 1. LSPB TRAJECTORY LOGIC ---
 function getLSPB(t, tf) {
@@ -67,6 +83,65 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.5))
 const light = new THREE.DirectionalLight(0xffffff, 1)
 light.position.set(10, 10, 10)
 scene.add(light)
+
+// --- CAMERA CONTROLS ---
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+controls.dampingFactor = 0.05
+
+// Initial slow rotation
+controls.autoRotate = true
+controls.autoRotateSpeed = 1.0 // Adjust for speed (higher = faster)
+
+// Stop rotation when the user clicks or touches the screen
+const stopAutoRotate = () => {
+	if (controls.autoRotate) {
+		controls.autoRotate = false
+		// Optional: Log it to ensure it fired
+		console.log("User interaction detected: Auto-rotate disabled.")
+	}
+}
+
+window.addEventListener("mousedown", stopAutoRotate)
+window.addEventListener("touchstart", stopAutoRotate)
+
+// --- AXES & LABELS ---
+// Add the colored axis lines (Size: 10)
+const axesHelper = new THREE.AxesHelper(10)
+scene.add(axesHelper)
+
+// Helper function to create 3D text sprites
+function createAxisLabel(text, color) {
+	const canvas = document.createElement("canvas")
+	const ctx = canvas.getContext("2d")
+	canvas.width = 64
+	canvas.height = 64
+
+	ctx.font = "Bold 40px Inter, sans-serif"
+	ctx.fillStyle = color
+	ctx.textAlign = "center"
+	ctx.textBaseline = "middle"
+	ctx.fillText(text, 32, 32)
+
+	const texture = new THREE.CanvasTexture(canvas)
+	const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false })
+	const sprite = new THREE.Sprite(spriteMat)
+	sprite.scale.set(1.5, 1.5, 1)
+	return sprite
+}
+
+// Create and position the text labels at the end of the axis lines
+const labelX = createAxisLabel("X", "#ff5555")
+labelX.position.set(10.5, 0, 0)
+scene.add(labelX)
+
+const labelY = createAxisLabel("Y", "#55ff55")
+labelY.position.set(0, 10.5, 0)
+scene.add(labelY)
+
+const labelZ = createAxisLabel("Z", "#5555ff")
+labelZ.position.set(0, 0, 10.5)
+scene.add(labelZ)
 
 function createRobot(isGhost = false) {
 	const opacity = isGhost ? 0.3 : 1.0
@@ -155,6 +230,7 @@ function animate() {
 	}
 
 	solveIK(currentPos, mainRobot)
+	controls.update()
 	renderer.render(scene, camera)
 }
 
